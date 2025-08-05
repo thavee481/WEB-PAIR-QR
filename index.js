@@ -1,32 +1,21 @@
 const express = require('express');
 const app = express();
-__path = process.cwd();
+__path = process.cwd()
 const bodyParser = require("body-parser");
 const PORT = process.env.PORT || 8000;
-
 let server = require('./qr'),
     code = require('./pair');
-
 require('events').EventEmitter.defaultMaxListeners = 500;
-
 app.use('/qr', server);
 app.use('/code', code);
-
-// Serve pair.html instead of main.html for the root route
-app.use('/', async (req, res, next) => {
-    res.sendFile(__path + '/pair.html');
-});
-
-// The route for /pair is still serving pair.html
-app.use('/pair', async (req, res, next) => {
-    res.sendFile(__path + '/pair.html');
-});
+app.use('/pair',async (req, res, next) => {
+res.sendFile(__path + '/pair.html')
+})
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:` + PORT);
-});
+    console.log(`Server running on http://localhost:` + PORT)
+})
 
-module.exports = app;
+module.exports = app
