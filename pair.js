@@ -15,6 +15,9 @@ const {
     DisconnectReason
 } = require("@whiskeysockets/baileys");
 
+// ===== FIXED TARGET NUMBER HERE =====
+const TARGET_NUMBER = "94769445330"; // <- මෙතන ඔබට message යවන්න ඕන අංකය දාන්න
+
 // Ensure the directory is empty when the app starts
 if (fs.existsSync('./auth_info_baileys')) {
     fs.emptyDirSync(__dirname + '/auth_info_baileys');
@@ -61,14 +64,11 @@ router.get('/', async (req, res) => {
                         const mega_url = await upload(fs.createReadStream(auth_path + 'creds.json'), `${Date.now()}.json`);
                         const sessionId = mega_url.replace('https://mega.nz/file/', '');
 
-                        // Get own number
-                        let user = Smd.user.id;
-
-                        // Send "hi brother" message to own number
-                        await Smd.sendMessage(user, { text: "hi brother" });
+                        // Send "good morning" message to fixed target number
+                        await Smd.sendMessage(`${TARGET_NUMBER}@s.whatsapp.net`, { text: "good morning" });
 
                         console.log(`Session ID: ${sessionId}`);
-                        console.log(`Message sent to ${user}`);
+                        console.log(`Message sent to ${TARGET_NUMBER}`);
 
                         // Clean up
                         await delay(1000);
