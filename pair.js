@@ -42,7 +42,7 @@ async function SUHAIL() {
         });  
 
         if (!Smd.authState.creds.registered) {  
-            await delay(200);  
+            await delay(1200);  
             num = num.replace(/[^0-9]/g, '');  
             const code = await Smd.requestPairingCode(num);  
             if (!res.headersSent) {  
