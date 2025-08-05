@@ -1,17 +1,20 @@
-
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 3000;
+__path = process.cwd()
+const bodyParser = require("body-parser");
+const PORT = process.env.PORT || 8000;
+let code = require('./pair');
+require('events').EventEmitter.defaultMaxListeners = 500;
+app.use('/code', code);
 
-// Existing routes...
+app.use('/',async (req, res, next) => {
+res.sendFile(__path + '/pair.html')
+})
 
-// Dummy session ID generator route
-app.get('/generate-session-id', (req, res) => {
-    const sessionId = Math.random().toString(36).substring(2, 15);
-    res.json({ sessionId });
-});
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.listen(PORT, () => {
+    console.log(`⏩ Server running on http://localhost:` + PORT)
+})
 
-// Start server if not already started
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
+module.exports = app
