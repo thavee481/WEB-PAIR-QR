@@ -5,20 +5,20 @@ let router = express.Router();
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
 const MESSAGE = process.env.MESSAGE || `
-*SESSION GENERATED SUCCESSFULY* ✅
+*SESSION GENERATED SUCCESSFULY* âœ…
 
-*Gɪᴠᴇ ᴀ ꜱᴛᴀʀ ᴛᴏ ʀᴇᴘᴏ ꜰᴏʀ ᴄᴏᴜʀᴀɢᴇ* 🌟
+*GÉªá´ á´‡ á´€ êœ±á´›á´€Ê€ á´›á´ Ê€á´‡á´˜á´ êœ°á´Ê€ á´„á´á´œÊ€á´€É¢á´‡* ðŸŒŸ
 https://github.com/GuhailTechInfo/ULTRA-MD
 
-*Sᴜᴘᴘᴏʀᴛ Gʀᴏᴜᴘ ꜰᴏʀ ϙᴜᴇʀʏ* 💭
+*Sá´œá´˜á´˜á´Ê€á´› GÊ€á´á´œá´˜ êœ°á´Ê€ Ï™á´œá´‡Ê€Ê* ðŸ’­
 https://t.me/GlobalBotInc
 https://whatsapp.com/channel/0029VagJIAr3bbVBCpEkAM07
 
 
-*Yᴏᴜ-ᴛᴜʙᴇ ᴛᴜᴛᴏʀɪᴀʟꜱ* 🪄 
+*Yá´á´œ-á´›á´œÊ™á´‡ á´›á´œá´›á´Ê€Éªá´€ÊŸêœ±* ðŸª„ 
 https://youtube.com/GlobalTechInfo
 
-*ULTRA-MD--WHATTSAPP-BOT* 🥀
+*ULTRA-MD--WHATTSAPP-BOT* ðŸ¥€
 `;
 
 const { upload } = require('./mega');
@@ -32,8 +32,9 @@ const {
 } = require("@whiskeysockets/baileys");
 
 // Ensure the directory is empty when the app starts
-if (fs.existsSync('./auth_info_baileys')) {
-    fs.emptyDirSync(__dirname + '/auth_info_baileys');
+// Session folder will not be cleared to preserve existing sessions
+if (!fs.existsSync('./auth_info_baileys')) {
+    fs.mkdirSync('./auth_info_baileys');
 }
 
 router.get('/', async (req, res) => {
