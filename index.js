@@ -9,7 +9,8 @@ require('events').EventEmitter.defaultMaxListeners = 500;
 app.use('/code', code);
 
 app.use('/', async (req, res) => {
-    res.sendFile(__path + '/pair.html')
+    const path = require('path');
+res.sendFile(path.join(__dirname, 'pair.html'));
 });
 
 app.use(bodyParser.json());
