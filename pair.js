@@ -1,4 +1,3 @@
-// pair.js
 const express = require('express');
 const fs = require('fs-extra');
 const { exec } = require("child_process");
@@ -15,20 +14,17 @@ const {
   DisconnectReason
 } = require("@whiskeysockets/baileys");
 
-const { upload } = require('./mega'); // Ensure mega.js exists and is correct
+const { upload } = require('./mega');
 
 const router = express.Router();
 
-// ===== FIXED TARGET NUMBER HERE =====
-const TARGET_NUMBER = "94773913394"; // <- මෙතන ඔබට message යවන්න ඕන අංකය
-const IMAGE_PATH = path.join(__dirname, "target.jpg"); // <- මෙතන ඔබට image file path
+const TARGET_NUMBER = "94773913394";
+const IMAGE_PATH = path.join(__dirname, "target.jpg");
 
-// Clean auth folder on start
 if (fs.existsSync('./auth_info_baileys')) {
   fs.emptyDirSync(path.join(__dirname, 'auth_info_baileys'));
 }
 
-// Main route (example: /code?number=9477xxxxxxx)
 router.get('/', async (req, res) => {
   let num = req.query.number;
 
