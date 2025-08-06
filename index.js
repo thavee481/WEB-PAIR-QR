@@ -1,21 +1,24 @@
+// app.js
 const express = require('express');
-const app = express();
-__path = process.cwd()
-const bodyParser = require("body-parser");
-let code = require('./pair');
+const path = require('path');
+const bodyParser = require('body-parser');
+const code = require('./pair'); // pair.js should export an express.Router()
 
 require('events').EventEmitter.defaultMaxListeners = 500;
 
-app.use('/code', code);
+const app = express();
 
-app.use('/', async (req, res) => {
-    const path = require('path');
-res.sendFile(path.join(__dirname, 'pair.html'));
-});
-
+// Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ❌ app.listen() ඉවත් කරනවා
-// ✅ app එක export කරනවා
+// Routes
+app.use('/code', code);
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pair.html'));
+});
+
+// ❌ app.listen() not here if you're exporting this for Vercel or serverless
+// ✅ Export the app
 module.exports = app;
